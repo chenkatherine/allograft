@@ -1,0 +1,9 @@
+# Ignore all .tif and .png files
+*.tif
+*.png
+
+# Ignore specific folders
+slide_subset/
+tiles/
+update_pruned/
+venv/
