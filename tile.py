@@ -7,7 +7,9 @@ from scipy.ndimage import gaussian_filter, binary_fill_holes
 from skimage.filters import threshold_otsu  # Otsu threshold
 from skimage.measure import regionprops, label
 
-import cv2
+import matplotlib.pyplot as plt
+import matplotlib.patches as patches
+import json
 
 def main():
     """
@@ -67,7 +69,17 @@ def main():
     print("Removed noise")
 
 
-    # Tiles image into 256x256x3 tiles
+    # Tiles binary image into 256x256x3 tiles without overlap and saves tiles to
+    # a list. Each tile information is saved as a dictionary in the list.
+    # Dictionary keys: dataset name, parent image path, path to tile, tile ID,
+    # upper left coordinates, tile width, and tile height in that order.
+    tiles = []
+    PATH = "ABMR_06282023S1_Area1.tif"
+    DATASET = "allograft_proof_of_concept"
+    test_width, test_height = cleaned_pil.size
+    IMAGE_WIDTH = test_width
+    IMAGE_HEIGHT = test_height
+
     non_zero_coords = np.argwhere(cleaned > 0)
     min_row, min_col = np.min(non_zero_coords, axis=0)
     max_row, max_col = np.max(non_zero_coords, axis=0)
@@ -88,9 +100,10 @@ def main():
     start_col = max(min_col - pad_left, 0)
 
     print(f"Tiling starting from row {start_row}, col {start_col}")
-    print(type(cleaned_binary))
+
 
     saved_tiles = 0
+    id = 0
     for i in range(num_tiles_row):
         for j in range(num_tiles_col):
             r0 = start_row + i * TILE_SIZE
@@ -98,16 +111,59 @@ def main():
             c0 = start_col + j * TILE_SIZE
             c1 = c0 + TILE_SIZE
 
-            # Boundary check
             if r1 > cleaned_binary.shape[0] or c1 > cleaned_binary.shape[1]:
                 continue
 
+            # Save tile as tif
             tile = cleaned_binary[r0:r1, c0:c1]
             tile_img = Image.fromarray(tile)
+            tile_path = f"tiles/tile_{i}_{j}.png"
             tile_img.save(f"tiles/tile_{i}_{j}.png")
+            # Save tile information into a dictionary entry in a list
+            tiles.append(dict(dataset=str(DATASET), parent_img=str(PATH),
+                              path=str(tile_path), tile_id=int(id),
+                              starting_point=(int(r0), int(c0)),
+                              tile_width=int(TILE_SIZE), 
+                              tile_height=int(TILE_SIZE),
+                              image_width=int(IMAGE_WIDTH),
+                              image_height=int(IMAGE_HEIGHT)))
+
             saved_tiles += 1
+            id += 1
+            
     print(f"Created {saved_tiles} tiles")
 
+    return tiles
+
+
+    # Write the tiling scheme to disk
+    # Binary image with grid overlaid in red
+    # Very time consuming--used as QC only
+    fig, ax = plt.subplots(figsize=(15, 15))
+    ax.imshow(cleaned_binary, cmap='gray')
+    for i in range(num_tiles_row):
+        for j in range(num_tiles_col):
+            r0 = start_row + i * TILE_SIZE
+            r1 = r0 + TILE_SIZE
+            c0 = start_col + j * TILE_SIZE
+            c1 = c0 + TILE_SIZE
+
+            if r1 > cleaned_binary.shape[0] or c1 > cleaned_binary.shape[1]:
+                continue
+            
+            rect = patches.Rectangle((c0, r0), TILE_SIZE, TILE_SIZE, 
+                                     linewidth=1, edgecolor='red', 
+                                     facecolor='none')
+            ax.add_patch(rect)
+
+    plt.savefig("tiling_overlay_preview.png", bbox_inches='tight', dpi=300)
+    plt.close(fig)
+    print("Saved tile scheme")
+
+
 if __name__ == "__main__":
-    main()
+    tiles_poc = main()
+    with open("tiles.json", "w") as tile_json:
+        json.dump(tiles_poc, tile_json, indent=4)
+        print("Saved tile list as json")
     print("Finished")
