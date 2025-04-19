@@ -2,6 +2,7 @@
 *.tif
 *.png
 *.json
+*.DS_Store
 
 # Ignore specific folders
 slide_subset/
