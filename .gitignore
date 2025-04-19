@@ -1,9 +1,11 @@
 # Ignore all .tif and .png files
 *.tif
 *.png
+*.json
 
 # Ignore specific folders
 slide_subset/
 tiles/
 update_pruned/
 venv/
+brat_poc/
