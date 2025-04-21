@@ -114,51 +114,54 @@ def main():
             if r1 > cleaned_binary.shape[0] or c1 > cleaned_binary.shape[1]:
                 continue
 
-            # Save tile as tif
+            # Save tile as tif if and only if the percentage of white pixels
+            # in the tile is greater than or equal to 75%
             tile = cleaned_binary[r0:r1, c0:c1]
-            tile_img = Image.fromarray(tile)
-            tile_path = f"tiles/tile_{i}_{j}.png"
-            tile_img.save(f"tiles/tile_{i}_{j}.png")
-            # Save tile information into a dictionary entry in a list
-            tiles.append(dict(dataset=str(DATASET), parent_img=str(PATH),
-                              path=str(tile_path), tile_id=int(id),
-                              starting_point=(int(r0), int(c0)),
-                              tile_width=int(TILE_SIZE), 
-                              tile_height=int(TILE_SIZE),
-                              image_width=int(IMAGE_WIDTH),
-                              image_height=int(IMAGE_HEIGHT)))
+            THRESHOLD = 0.75
 
-            saved_tiles += 1
-            id += 1
-            
+            tile_white_pixels = np.sum(tile > 0)
+            tile_total_pixels = tile.size
+            tile_white_ratio = tile_white_pixels / tile_total_pixels
+
+            if tile_white_ratio >= THRESHOLD:
+                tile_img = Image.fromarray(tile)
+                tile_path = f"tiles/{PATH}_tile_{i}_{j}.png"
+                tile_img.save(tile_path)
+                
+                # Save tile information into a dictionary entry in a list
+                tiles.append(dict(dataset=str(DATASET), parent_img=str(PATH),
+                                path=str(tile_path), tile_id=int(id),
+                                starting_point=(int(r0), int(c0)),
+                                tile_width=int(TILE_SIZE), 
+                                tile_height=int(TILE_SIZE),
+                                image_width=int(IMAGE_WIDTH),
+                                image_height=int(IMAGE_HEIGHT)))
+
+                saved_tiles += 1
+                id += 1
+
     print(f"Created {saved_tiles} tiles")
-
-    return tiles
-
 
     # Write the tiling scheme to disk
     # Binary image with grid overlaid in red
-    # Very time consuming--used as QC only
+    # QC only
     fig, ax = plt.subplots(figsize=(15, 15))
     ax.imshow(cleaned_binary, cmap='gray')
-    for i in range(num_tiles_row):
-        for j in range(num_tiles_col):
-            r0 = start_row + i * TILE_SIZE
-            r1 = r0 + TILE_SIZE
-            c0 = start_col + j * TILE_SIZE
-            c1 = c0 + TILE_SIZE
 
-            if r1 > cleaned_binary.shape[0] or c1 > cleaned_binary.shape[1]:
-                continue
-            
-            rect = patches.Rectangle((c0, r0), TILE_SIZE, TILE_SIZE, 
-                                     linewidth=1, edgecolor='red', 
-                                     facecolor='none')
-            ax.add_patch(rect)
+    # Only draw rectangles for tiles that were saved
+    for tile_info in tiles:
+        r0, c0 = tile_info["starting_point"]
+        rect = patches.Rectangle((c0, r0), TILE_SIZE, TILE_SIZE, 
+                                linewidth=1, edgecolor='red', 
+                                facecolor='none')
+        ax.add_patch(rect)
 
-    plt.savefig("tiling_overlay_preview.png", bbox_inches='tight', dpi=300)
+    plt.savefig("threshold_tiling_overlay_preview.png", bbox_inches='tight', dpi=300)
     plt.close(fig)
-    print("Saved tile scheme")
+    print("Saved tile scheme") 
+
+    
+    return tiles
 
 
 if __name__ == "__main__":
