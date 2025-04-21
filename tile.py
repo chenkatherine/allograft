@@ -15,7 +15,9 @@ def main():
     """
     Opens an image, inverts the colors, then converts to grayscale not in-place.
     Applies Gaussian blur, Otsu thresholding, fills holes, and removes tissue
-    fragments in preparation for tiling. 
+    fragments in preparation for tiling. Tiles image into 256x256x3 tiles and
+    only saves those >=75% tissue to a list and json file. Provides tiling 
+    scheme of saved files for QC.
     """
     # Open image
     path = "ABMR_06282023S1_Area1.tif"
@@ -69,8 +71,9 @@ def main():
     print("Removed noise")
 
 
-    # Tiles binary image into 256x256x3 tiles without overlap and saves tiles to
-    # a list. Each tile information is saved as a dictionary in the list.
+    # Tiles binary image into 256x256x3 tiles without overlap and saves only
+    # tiles that are >=75% tissue to a list. Each tile information is saved as a 
+    # dictionary in the list. List is ultimately saved as json.
     # Dictionary keys: dataset name, parent image path, path to tile, tile ID,
     # upper left coordinates, tile width, and tile height in that order.
     tiles = []
@@ -125,7 +128,7 @@ def main():
 
             if tile_white_ratio >= THRESHOLD:
                 tile_img = Image.fromarray(tile)
-                tile_path = f"tiles/{PATH}_tile_{i}_{j}.png"
+                tile_path = f"tiles/{PATH}_tile_{i}_{j}.tif"
                 tile_img.save(tile_path)
                 
                 # Save tile information into a dictionary entry in a list
@@ -156,11 +159,12 @@ def main():
                                 facecolor='none')
         ax.add_patch(rect)
 
-    plt.savefig("threshold_tiling_overlay_preview.png", bbox_inches='tight', dpi=300)
+    plt.savefig("tiling_overlay_preview_threshold.png", 
+                bbox_inches='tight', dpi=300)
     plt.close(fig)
     print("Saved tile scheme") 
 
-    
+
     return tiles
 
 
