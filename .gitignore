@@ -3,6 +3,8 @@
 *.png
 *.json
 *.DS_Store
+*.txt
+*.csv
 
 # Ignore specific folders
 slide_subset/
@@ -10,3 +12,4 @@ tiles/
 update_pruned/
 venv/
 brat_poc/
+UNI/
