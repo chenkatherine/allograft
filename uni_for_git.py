@@ -19,13 +19,20 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # Use the get_encoder function to load the UNI2-h model
 from huggingface_hub import login
 
-# Login with user access token
-# removed for git push
+# login with user access token
 
-# Downloading weights and creating model
+# downloading weights and creating model
 import timm
 from timm.data import resolve_data_config
 from timm.data.transforms_factory import create_transform
+
+# pretrained=True needed to load UNI weights (and download weights for the first time)
+# init_values need to be passed in to successfully load LayerScale parameters (e.g. - block.0.ls1.gamma)
+# model = timm.create_model("hf-hub:MahmoodLab/UNI2-h", pretrained=True, init_values=1e-5, dynamic_img_size=False)
+# transform = create_transform(**resolve_data_config(model.pretrained_cfg, model=model))
+# model.eval()
+# model.to(device)
+# transform
 
 # pretrained=True needed to load UNI2-h weights (and download weights for the first time)
 timm_kwargs = {
@@ -48,25 +55,24 @@ transform = create_transform(**resolve_data_config(model.pretrained_cfg, model=m
 model.eval()
 
 # Use the get_encoder function which properly sets up all the required parameters
-model, transform = get_encoder(enc_name='uni2-h', device=device)
+# model, transform = get_encoder(enc_name='uni2-h', device=device)
 
 # ROI feature extraction
 from uni.downstream.extract_patch_features import extract_patch_features_from_dataloader
 
-# Get path to saved data
+# get path to example data
 dataroot = "HE_IMAGES"
 
-# Set the image max to 'None' or to avoid a DecompressionBomb Error
+# also set the image max to none or else it throws a DecompressionBomb Error
 Image.MAX_IMAGE_PIXELS = None
 
-# Create some image folder datasets for train/test and their data laoders
+# create some image folder datasets for train/test and their data laoders
 train_dataset = torchvision.datasets.ImageFolder(j_(dataroot, 'train'), transform=transform)
 test_dataset = torchvision.datasets.ImageFolder(j_(dataroot, 'test'), transform=transform)
 train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=16, shuffle=False)
 test_dataloader = torch.utils.data.DataLoader(test_dataset, batch_size=16, shuffle=False)
 
-# Extract patch features from the train and test datasets (returns dictionary 
-# of embeddings and labels)
+# extract patch features from the train and test datasets (returns dictionary of embeddings and labels)
 train_features = extract_patch_features_from_dataloader(model, train_dataloader)
 test_features = extract_patch_features_from_dataloader(model, test_dataloader)
 
@@ -76,7 +82,7 @@ train_labels = torch.Tensor(train_features['labels']).type(torch.long)
 test_feats = torch.Tensor(test_features['embeddings'])
 test_labels = torch.Tensor(test_features['labels']).type(torch.long)
 
-# Protonet few shot evaluation
+# ROI few-shot evaluation (based on ProtoNet)
 from uni.downstream.eval_patch_features.fewshot import eval_fewshot
 
 fewshot_episodes, fewshot_dump = eval_fewshot(
@@ -84,17 +90,17 @@ fewshot_episodes, fewshot_dump = eval_fewshot(
     train_labels = train_labels,
     test_feats = test_feats,
     test_labels = test_labels,
-    n_iter = 1000, # Originally 500
-    n_way = 3, # Originally 2
-    n_shot = 8, # Originally 4
+    n_iter = 4000, # draw 500 few-shot episodes
+    n_way = 2, # use all class examples; originally 2
+    n_shot = 8, # 4 examples per class (as we don't have that many)
     n_query = test_feats.shape[0], # evaluate on all test samples
-    center_feats = False, # Originally True
-    normalize_feats = True,
-    average_feats = False, # Originally True
+    center_feats = False, # True
+    normalize_feats = False, # True
+    average_feats = False, # True
 )
 
-# Evaluation
+# how well we did picking 4 random examples per class
 print(fewshot_episodes)
 
-# Summary
+# summary
 print(fewshot_dump)
